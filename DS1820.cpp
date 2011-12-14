@@ -248,14 +248,26 @@ return CRC;
 
 void DS1820::convert_temperature(devices device) {
     // Convert temperature into scratchpad RAM for all devices at once
+    int delay_time = 750; // Default delay time
+    char resolution;
     if (device==all_devices)
         skip_ROM();          // Skip ROM command, will convert for ALL devices
-    else
+    else {
         match_ROM();
+        if (FAMILY_CODE == FAMILY_CODE_DS18B20 ) {
+            resolution = RAM[4] & 0x60;
+            if (resolution == 0x00) // 9 bits
+                delay_time = 94;
+            if (resolution == 0x20) // 10 bits
+                delay_time = 188;
+            if (resolution == 0x40) // 11 bits. Note 12bits uses the 750ms default
+                delay_time = 375;
+        }
+    }
     onewire_byte_out( 0x44);  // perform temperature conversion
     if (_parasite_power)
         _parasitepin = 1;       // Parasite power strong pullup
-    wait_ms(750);
+    wait_ms(delay_time);
     if (_parasite_power)
         _parasitepin = 0;
 }
@@ -272,6 +284,19 @@ void DS1820::read_RAM() {
     }
 }
 
+bool DS1820::set_configuration_bits(unsigned int resolution) {
+    bool answer = false;
+    resolution = resolution - 9;
+    if (resolution < 4) {
+        resolution = resolution<<5; // align the bits
+        RAM[4] = (RAM[4] & 0x60) | resolution; // mask out old data, insert new
+        write_scratchpad ((RAM[2]<<8) + RAM[3]);
+//        store_scratchpad (DS1820::this_device); // Need to test if this is required
+        answer = true;
+    }
+    return answer;
+}
+
 int DS1820::read_scratchpad() {
     int answer;
     read_RAM();
@@ -286,6 +311,9 @@ void DS1820::write_scratchpad(int data) {
     onewire_byte_out(0x4E);   // Copy scratchpad into DS1820 ram memory
     onewire_byte_out(RAM[2]); // T(H)
     onewire_byte_out(RAM[3]); // T(L)
+    if ( FAMILY_CODE == FAMILY_CODE_DS18B20 ) {
+        onewire_byte_out(RAM[4]); // Configuration register
+    }
 }
 
 void DS1820::store_scratchpad(devices device) {
@@ -333,10 +361,15 @@ float DS1820::temperature(char scale) {
     if (reading & 0x8000) { // negative degrees C
         reading = 0-((reading ^ 0xffff) + 1); // 2's comp then convert to signed int
     }
-    remaining_count = RAM[6];
-    count_per_degree = RAM[7];
-    answer = reading +0.0;
-    answer = answer - 0.25 + (count_per_degree - remaining_count) / count_per_degree;
+    answer = reading +0.0; // convert to floating point
+    if ( FAMILY_CODE == FAMILY_CODE_DS18B20 ) {
+        answer = answer / 8.0;
+    }
+    else {
+        remaining_count = RAM[6];
+        count_per_degree = RAM[7];
+        answer = answer - 0.25 + (count_per_degree - remaining_count) / count_per_degree;
+    }
     if (scale=='C' or scale=='c')
         answer = answer / 2.0;
     else

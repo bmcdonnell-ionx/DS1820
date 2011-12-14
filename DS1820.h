@@ -106,6 +106,10 @@ public:
       * ROM[7] is the device CRC
       */
     char ROM[8];
+    #define FAMILY_CODE ROM[0]
+    #define FAMILY_CODE_DS1820 0x10
+    #define FAMILY_CODE_DS18S20 0x10
+    #define FAMILY_CODE_DS18B20 0x28
     
     /** RAM is a copy of the internal DS1820's RAM
       * It's updated during the read_RAM() command
@@ -189,10 +193,18 @@ public:
       */
     bool RAM_checksum_error();
 
-    /** This funtion returns the values stored in the temperature
+    /** This function returns the values stored in the temperature
       * alarm registers. 
       *
       * @returns a 16 bit integer of TH (upper byte) and TL (lower byte).
+      */
+    bool set_configuration_bits(unsigned int resolution);
+    
+    /** This function sets the temperature resolution for the DS18B20
+      * in the configuration register.
+      *
+      * @param a number between 9 and 12 to specify the resolution
+      * @returns true if successful
       */
     int read_scratchpad();
     
@@ -217,7 +229,7 @@ public:
     /** This function will copy the stored values from the EEPROM
       * into the DS1820's RAM locations for TH and TL.
       *
-      * @param allows the fnction to apply to a specific device or
+      * @param allows the function to apply to a specific device or
       * to all devices on the 1-Wire bus.
       */
     int recall_scratchpad(devices device=this_device);
