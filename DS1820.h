@@ -99,7 +99,7 @@ public:
     DS1820(PinName data_pin);
 
     /** ROM is a copy of the internal DS1820's ROM
-      * It's created during the search_ROM() or search_alarm() commands
+      * It is created during the search_ROM() or search_alarm() commands
       *
       * ROM[0] is the Dallas Family Code
       * ROM[1] thru ROM[6] is the 48-bit unique serial number
@@ -205,7 +205,7 @@ public:
       *
       * @param a number between 9 and 12 to specify the resolution
       * @returns true if successful
-      */
+      */ 
     int read_scratchpad();
     
     /** This function will store the passed data into the DS1820's RAM.
@@ -213,7 +213,7 @@ public:
       * during cycling the power off and on.
       *
       * @param a 16 bit integer of TH (upper byte) and TL (lower byte).
-      */
+      */ 
     void write_scratchpad(int data);
     
     /** This function will transfer the TH and TL registers from the
@@ -223,7 +223,7 @@ public:
       *
       * @param allows the fnction to apply to a specific device or
       * to all devices on the 1-Wire bus.
-      */
+      */ 
     void store_scratchpad(devices device=this_device);
 
     /** This function will copy the stored values from the EEPROM
