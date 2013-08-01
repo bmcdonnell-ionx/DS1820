@@ -67,7 +67,7 @@
  *         lcd.printf("No devices found");
  *     else {
  *         while (true) {
- *             probe[0]->convert_temperature(DS1820::all_devices);
+ *             probe[0]->convert_temperature(true, DS1820::all_devices);
  *             lcd.cls();
  *             for (i=0; i<devices_found; i++) {
  *                 lcd.printf("%3.1f ",probe[i]->temperature('f'));
@@ -114,13 +114,14 @@ public:
     /** RAM is a copy of the internal DS1820's RAM
       * It's updated during the read_RAM() command
       * which is automaticaly called from any function
-      * using the RAM values.
+      * using the RAM values except RAM_checksum_error.
       */
     char RAM[9];
     
-    /* This function copies the DS1820's RAM into the object's
-     * RAM[].
-     */
+    /** This function copies the DS1820's RAM into the object's
+      * RAM[]. It is automaticaly called by temperature(), 
+      * read_scratchpad(), and recall_scratchpad() of a single probe.
+      */
     void read_RAM();
 
     /** This routine initializes the global variables used in
@@ -157,55 +158,59 @@ public:
     void read_ROM();
 
     /** This routine will initiate the temperature conversion within
-      * a DS1820. There is a built in 750ms delay to allow the 
-      * conversion to complete.
+      * one or all DS1820 probes. There is an optional built in delay 
+      * (up to 750ms) to allow the conversion to complete.
       *
       * To update all probes on the bus, use a statement such as this:
-      * probe[0]->convert_temperature(DS1820::all_devices);
+      * probe[0]->convert_temperature(true, DS1820::all_devices);
       *
-      * @param allows the fnction to apply to a specific device or
+      * @param wait if true or parisitic power is used, waits up to 750 ms for 
+      * conversion otherwise returns immediatly.
+      * @param device allows the function to apply to a specific device or
       * to all devices on the 1-Wire bus.
+      * @returns milliseconds untill conversion will complete.
       */
-    void convert_temperature(devices device=this_device);
+    int convert_temperature(bool wait, devices device=this_device);
 
-    /** This function will return the probe temperature. This function
-      * uses the count remainding values to interpolate the temperature
+    /** This function will return the probe temperature. Approximately 10ms per
+      * probe to read its RAM, do CRC check and convert temperature on the LPC1768.
+      * This function uses the count remainding values to interpolate the temperature
       * to about 1/150th of a degree. Whereas the probe is not spec to
       * that precision. It does seem to give a smooth reading to the
       * tenth of a degree.
       *
       * @param scale, may be either 'c' or 'f'
-      * @returns temperature for that scale
+      * @returns temperature for that scale, or -1000.0 if CRC error detected.
       */
     float temperature(char scale='c');
     
     /** This function calculates the ROM checksum and compares it to the
       * CRC value stored in ROM[7].
       *
-      * @returns true if the checksum matches, otherwise false.
+      * @returns true if the checksums mis-match, otherwise false.
       */
     bool ROM_checksum_error();
 
     /** This function calculates the RAM checksum and compares it to the
-      * CRC value stored in RAM[8].
+      * CRC value stored in RAM[8]. Approx 10 us on LPC1768.
       *
-      * @returns true if the checksum matches, otherwise false.
+      * @returns true if the checksums mis-matche, otherwise false.
       */
     bool RAM_checksum_error();
 
+    /** This function sets the temperature resolution for the DS18B20
+      * in the configuration register.
+      *
+      * @param a number between 9 and 12 to specify resolution
+      * @returns true if successful
+      */ 
+    bool set_configuration_bits(unsigned int resolution);
+    
     /** This function returns the values stored in the temperature
       * alarm registers. 
       *
       * @returns a 16 bit integer of TH (upper byte) and TL (lower byte).
       */
-    bool set_configuration_bits(unsigned int resolution);
-    
-    /** This function sets the temperature resolution for the DS18B20
-      * in the configuration register.
-      *
-      * @param a number between 9 and 12 to specify the resolution
-      * @returns true if successful
-      */ 
     int read_scratchpad();
     
     /** This function will store the passed data into the DS1820's RAM.
