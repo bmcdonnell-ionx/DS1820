@@ -151,7 +151,10 @@ bool DS1820::search_ROM_routine(char command) {
             if (ROM_bit_index != 0xFF) {
                 for(byte_counter=0;byte_counter<8;byte_counter++)
                     ROM[byte_counter] = DS1820_search_ROM[byte_counter];
-                return_value = true;
+                if (ROM_checksum_error())           // Check the CRC
+                    DS1820_last_descrepancy = 0;    // Abort any more search
+                else
+                    return_value = true;
             }
         }
         if (DS1820_last_descrepancy == 0)
