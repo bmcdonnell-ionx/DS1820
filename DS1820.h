@@ -24,60 +24,31 @@
 #define MBED_DS1820_H
 
 #include "mbed.h"
+#include "LinkedList.h"
 
-// ****** THIS GLOBAL VARIABLES MUST BE DEFINED IN main.cpp
-
-// Global variables shared between all DS1820 objects
-//bool DS1820_done_flag;
-//int  DS1820_last_descrepancy;
-//char DS1820_search_ROM[8];
+#define FAMILY_CODE _ROM[0]
+#define FAMILY_CODE_DS1820 0x10
+#define FAMILY_CODE_DS18B20 0x28
+#define FAMILY_CODE_DS1822  0x22
 
 /** DS1820 Dallas 1-Wire Temperature Probe
  *
  * Example:
  * @code
  * #include "mbed.h"
- *
- * #include "TextLCD.h"
  * #include "DS1820.h"
  *
- * TextLCD lcd(p25, p26, p21, p22, p23, p24, TextLCD::LCD16x2); // rs, e, d0-d3, layout
- *
- * const int MAX_PROBES = 16;
- * DS1820* probe[MAX_PROBES];
- *
+ * DS1820 probe(DATA_PIN);
+ *  
  * int main() {
- *     int i;
- *     int devices_found=0;
- *     // Initialize the probe array to DS1820 objects
- *     for (i = 0; i < MAX_PROBES; i++)
- *         probe[i] = new DS1820(p27);
- *     // Initialize global state variables
- *     probe[0]->search_ROM_setup();
- *     // Loop to find all devices on the data line
- *     while (probe[devices_found]->search_ROM() and devices_found<MAX_PROBES-1)
- *         devices_found++;
- *     // If maximum number of probes are found, 
- *     // bump the counter to include the last array entry
- *     if (probe[devices_found]->ROM[0] != 0xFF)
- *         devices_found++;
- * 
- *     lcd.cls();
- *     if (devices_found==0)
- *         lcd.printf("No devices found");
- *     else {
- *         while (true) {
- *             probe[0]->convert_temperature(true, DS1820::all_devices);
- *             lcd.cls();
- *             for (i=0; i<devices_found; i++) {
- *                 lcd.printf("%3.1f ",probe[i]->temperature('f'));
- *             }
- *         }
+ *     while(1) {
+ *         probe.convertTemperature(true, DS1820::all_devices);         //Start temperature conversion, wait until ready
+ *         printf("It is %3.1foC\r\n", probe.temperature());
+ *         wait(1);
  *     }
  * }
  * @endcode
  */
- 
 class DS1820 {
 public:
     enum devices{
@@ -85,84 +56,28 @@ public:
         all_devices };   // command applies to all devices
 
     /** Create a probe object connected to the specified pins
+    *
+    * The probe might either by regular powered or parasite powered. If it is parasite
+    * powered and power_pin is set, that pin will be used to switch an external mosfet connecting
+    * data to Vdd. If it is parasite powered and the pin is not set, the regular data pin
+    * is used to supply extra power when required. This will be sufficient as long as the 
+    * number of probes is limitted.
      *
      * @param data_pin DigitalInOut pin for the data bus
-     * @param power_pin DigitalOut pin to control the power MOSFET
+     * @param power_pin DigitalOut (optional) pin to control the power MOSFET
+     * @param power_polarity bool (optional) which sets active state (0 for active low (default), 1 for active high)
      */
-    DS1820(PinName data_pin, PinName power_pin); // Constructor with parasite power pin
+    DS1820(PinName data_pin, PinName power_pin = NC, bool power_polarity = 0); // Constructor with parasite power pin
+    ~DS1820();
 
-    /** Create a probe object connected to the specified pin
-     *  this is used when all probes are externally powered
-     *
-     * @param data_pin DigitalInOut pin for the data bus
-     */
-    DS1820(PinName data_pin);
-
-    /** ROM is a copy of the internal DS1820's ROM
-      * It is created during the search_ROM() or search_alarm() commands
-      *
-      * ROM[0] is the Dallas Family Code
-      * ROM[1] thru ROM[6] is the 48-bit unique serial number
-      * ROM[7] is the device CRC
+    /** Function to see if there are DS1820 devices left on a pin which do not have a corresponding DS1820 object
+    *
+    * @return - true if there are one or more unassigned devices, otherwise false
       */
-    char ROM[8];
-    #define FAMILY_CODE ROM[0]
-    #define FAMILY_CODE_DS1820 0x10
-    #define FAMILY_CODE_DS18S20 0x10
-    #define FAMILY_CODE_DS18B20 0x28
-    
-    /** RAM is a copy of the internal DS1820's RAM
-      * It's updated during the read_RAM() command
-      * which is automaticaly called from any function
-      * using the RAM values except RAM_checksum_error.
-      */
-    char RAM[9];
-    
-    /** This function copies the DS1820's RAM into the object's
-      * RAM[]. It is automaticaly called by temperature(), 
-      * read_scratchpad(), and recall_scratchpad() of a single probe.
-      */
-    void read_RAM();
-
-    /** This routine initializes the global variables used in
-      * the search_ROM() and search_alarm() funtions. It should
-      * be called once before looping to find devices.
-      */
-    void search_ROM_setup();
-
-    /** This routine will search for an unidentified device
-      * on the bus. It uses the variables in search_ROM_setup
-      * to remember the pervious ROM address found.
-      * It will return FALSE if there were no new devices
-      * discovered on the bus.
-      */
-    bool search_ROM();
-
-    /** This routine will search for an unidentified device
-      * which has the temperature alarm bit set. It uses the 
-      * variables in search_ROM_setup to remember the pervious 
-      * ROM address found. It will return FALSE if there were 
-      * no new devices with alarms discovered on the bus.
-      */
-    bool search_alarm();
-
-    /** This routine will read the ROM (Family code, serial number
-      * and Checksum) from a dedicated device on the bus.
-      *
-      * NOTE: This command can only be used when there is only one 
-      *       DS1820 on the bus. If this command is used when there 
-      *       is more than one slave present on the bus, a data 
-      *       collision will occur when all the DS1820s attempt to 
-      *       respond at the same time.
-      */
-    void read_ROM();
+    static bool unassignedProbe(PinName pin);
 
     /** This routine will initiate the temperature conversion within
-      * one or all DS1820 probes. There is an optional built in delay 
-      * (up to 750ms) to allow the conversion to complete.
-      *
-      * To update all probes on the bus, use a statement such as this:
-      * probe[0]->convert_temperature(true, DS1820::all_devices);
+      * one or all DS1820 probes. 
       *
       * @param wait if true or parisitic power is used, waits up to 750 ms for 
       * conversion otherwise returns immediatly.
@@ -170,33 +85,15 @@ public:
       * to all devices on the 1-Wire bus.
       * @returns milliseconds untill conversion will complete.
       */
-    int convert_temperature(bool wait, devices device=this_device);
+    int convertTemperature(bool wait, devices device=this_device);
 
     /** This function will return the probe temperature. Approximately 10ms per
       * probe to read its RAM, do CRC check and convert temperature on the LPC1768.
-      * This function uses the count remainding values to interpolate the temperature
-      * to about 1/150th of a degree. Whereas the probe is not spec to
-      * that precision. It does seem to give a smooth reading to the
-      * tenth of a degree.
       *
       * @param scale, may be either 'c' or 'f'
       * @returns temperature for that scale, or -1000.0 if CRC error detected.
       */
     float temperature(char scale='c');
-    
-    /** This function calculates the ROM checksum and compares it to the
-      * CRC value stored in ROM[7].
-      *
-      * @returns true if the checksums mis-match, otherwise false.
-      */
-    bool ROM_checksum_error();
-
-    /** This function calculates the RAM checksum and compares it to the
-      * CRC value stored in RAM[8]. Approx 10 us on LPC1768.
-      *
-      * @returns true if the checksums mis-matche, otherwise false.
-      */
-    bool RAM_checksum_error();
 
     /** This function sets the temperature resolution for the DS18B20
       * in the configuration register.
@@ -204,65 +101,36 @@ public:
       * @param a number between 9 and 12 to specify resolution
       * @returns true if successful
       */ 
-    bool set_configuration_bits(unsigned int resolution);
-    
-    /** This function returns the values stored in the temperature
-      * alarm registers. 
-      *
-      * @returns a 16 bit integer of TH (upper byte) and TL (lower byte).
-      */
-    int read_scratchpad();
-    
-    /** This function will store the passed data into the DS1820's RAM.
-      * Note: It does NOT save the data to the EEPROM for retention
-      * during cycling the power off and on.
-      *
-      * @param a 16 bit integer of TH (upper byte) and TL (lower byte).
-      */ 
-    void write_scratchpad(int data);
-    
-    /** This function will transfer the TH and TL registers from the
-      * DS1820's RAM into the EEPROM.
-      * Note: There is a built in 10ms delay to allow for the
-      * completion of the EEPROM write cycle.
-      *
-      * @param allows the fnction to apply to a specific device or
-      * to all devices on the 1-Wire bus.
-      */ 
-    void store_scratchpad(devices device=this_device);
-
-    /** This function will copy the stored values from the EEPROM
-      * into the DS1820's RAM locations for TH and TL.
-      *
-      * @param allows the function to apply to a specific device or
-      * to all devices on the 1-Wire bus.
-      */
-    int recall_scratchpad(devices device=this_device);
-
-    /** This function will return the type of power supply for
-      * a specific device. It can also be used to query all devices
-      * looking for any device that is parasite powered.
-      *
-      * @returns true if the device (or all devices) are Vcc powered,
-      * returns false if the device (or ANY device) is parasite powered.
-      */
-    bool read_power_supply(devices device=this_device);
+    bool setResolution(unsigned int resolution);       
 
 private:
     bool _parasite_power;
-    char CRC_byte (char CRC, char byte );
-    bool onewire_reset();
+    bool _power_mosfet;
+    bool _power_polarity;
+    
+    static char CRC_byte (char CRC, char byte );
+    static bool onewire_reset(DigitalInOut *pin);
     void match_ROM();
     void skip_ROM();
-    bool search_ROM_routine(char command);
-    void onewire_bit_out (bool bit_data);
+    static bool search_ROM_routine(DigitalInOut *pin, char command, char *ROM_address);
+    static void onewire_bit_out (DigitalInOut *pin, bool bit_data);
     void onewire_byte_out(char data);
-    bool onewire_bit_in();
+    static bool onewire_bit_in(DigitalInOut *pin);
     char onewire_byte_in();
+    static bool ROM_checksum_error(char *_ROM_address);
+    bool RAM_checksum_error();
+    void read_RAM();
+    static bool unassignedProbe(DigitalInOut *pin, char *ROM_address);
+    void write_scratchpad(int data);
+    bool read_power_supply(devices device=this_device);
 
-protected:
     DigitalInOut _datapin;
     DigitalOut _parasitepin;
+    
+    char _ROM[8];
+    char RAM[9];
+    
+    static LinkedList<node> probes;
 };
 
 
