@@ -85,7 +85,7 @@ public:
       * to all devices on the 1-Wire bus.
       * @returns milliseconds untill conversion will complete.
       */
-    int convertTemperature(bool wait, devices device=this_device);
+    int convertTemperature(bool wait, devices device=all_devices);
 
     /** This function will return the probe temperature. Approximately 10ms per
       * probe to read its RAM, do CRC check and convert temperature on the LPC1768.
