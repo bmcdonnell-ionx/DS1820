@@ -54,6 +54,10 @@ public:
     enum devices{
         this_device,     // command applies to only this device
         all_devices };   // command applies to all devices
+    
+    enum {
+        invalid_conversion = -1000
+    };
 
     /** Create a probe object connected to the specified pins
     *
@@ -91,7 +95,7 @@ public:
       * probe to read its RAM, do CRC check and convert temperature on the LPC1768.
       *
       * @param scale, may be either 'c' or 'f'
-      * @returns temperature for that scale, or -1000.0 if CRC error detected.
+      * @returns temperature for that scale, or DS1820::invalid_conversion (-1000) if CRC error detected.
       */
     float temperature(char scale='c');
 

@@ -353,7 +353,7 @@ float DS1820::temperature(char scale) {
     read_RAM();
     if (RAM_checksum_error())
         // Indicate we got a CRC error
-        answer = -1000.0;
+        answer = invalid_conversion;
     else {
         reading = (RAM[1] << 8) + RAM[0];
         if (reading & 0x8000) { // negative degrees C
