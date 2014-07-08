@@ -51,11 +51,11 @@ void DS1820::onewire_bit_out (DigitalInOut *pin, bool bit_data) {
     pin->write(0);
     wait_us(3);                 // DXP modified from 5
     if (bit_data) {
-        pin->input(); // bring data line high
+        pin->write(1); // bring data line high
         wait_us(55);
     } else {
         wait_us(55);            // keep data line low
-        pin->input();
+        pin->write(1);
         wait_us(10);            // DXP added to allow bus to float high before next bit_out
     }
 }
