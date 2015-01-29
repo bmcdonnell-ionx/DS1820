@@ -6,8 +6,8 @@ LinkedList<node> DS1820::probes;
 DS1820::DS1820 (PinName data_pin, PinName power_pin, bool power_polarity) : _datapin(data_pin), _parasitepin(power_pin) {
     int byte_counter;
     _power_polarity = power_polarity;
-    if (power_pin != NC)
-        _power_mosfet = true;
+
+    _power_mosfet = power_pin != NC;
     
     for(byte_counter=0;byte_counter<9;byte_counter++)
         RAM[byte_counter] = 0x00;
