@@ -361,18 +361,16 @@ float DS1820::temperature(char scale) {
         }
         answer = reading +0.0; // convert to floating point
         if ((FAMILY_CODE == FAMILY_CODE_DS18B20 ) || (FAMILY_CODE == FAMILY_CODE_DS1822 )) {
-            answer = answer / 8.0;
+            answer = answer / 16.0;
         }
         else {
             remaining_count = RAM[6];
             count_per_degree = RAM[7];
-            answer = answer - 0.25 + (count_per_degree - remaining_count) / count_per_degree;
+            answer = floor(answer/2.0) - 0.25 + (count_per_degree - remaining_count) / count_per_degree;
         }
-        if (scale=='C' or scale=='c')
-            answer = answer / 2.0;
-        else
+        if (scale=='F' or scale=='f')
             // Convert to deg F
-            answer = answer * 9.0 / 10.0 + 32.0;
+            answer = answer * 9.0 / 5.0 + 32.0;
     }
     return answer;
 }
