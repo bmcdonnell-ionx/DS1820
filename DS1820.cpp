@@ -213,53 +213,53 @@ void DS1820::skip_ROM() {
 }
  
 bool DS1820::ROM_checksum_error(char *_ROM_address) {
-    char CRC=0x00;
+    char _CRC=0x00;
     int i;
     for(i=0;i<7;i++) // Only going to shift the lower 7 bytes
-        CRC = CRC_byte(CRC, _ROM_address[i]);
+        _CRC = CRC_byte(_CRC, _ROM_address[i]);
     // After 7 bytes CRC should equal the 8th byte (ROM CRC)
-    return (CRC!=_ROM_address[7]); // will return true if there is a CRC checksum mis-match         
+    return (_CRC!=_ROM_address[7]); // will return true if there is a CRC checksum mis-match         
 }
  
 bool DS1820::RAM_checksum_error() {
-    char CRC=0x00;
+    char _CRC=0x00;
     int i;
     for(i=0;i<8;i++) // Only going to shift the lower 8 bytes
-        CRC = CRC_byte(CRC, RAM[i]);
+        _CRC = CRC_byte(_CRC, RAM[i]);
     // After 8 bytes CRC should equal the 9th byte (RAM CRC)
-    return (CRC!=RAM[8]); // will return true if there is a CRC checksum mis-match        
+    return (_CRC!=RAM[8]); // will return true if there is a CRC checksum mis-match        
 }
  
-char DS1820::CRC_byte (char CRC, char byte ) {
+char DS1820::CRC_byte (char _CRC, char byte ) {
     int j;
     for(j=0;j<8;j++) {
-        if ((byte & 0x01 ) ^ (CRC & 0x01)) {
+        if ((byte & 0x01 ) ^ (_CRC & 0x01)) {
             // DATA ^ LSB CRC = 1
-            CRC = CRC>>1;
+            _CRC = _CRC>>1;
             // Set the MSB to 1
-            CRC = CRC | 0x80;
+            _CRC = _CRC | 0x80;
             // Check bit 3
-            if (CRC & 0x04) {
-                CRC = CRC & 0xFB; // Bit 3 is set, so clear it
+            if (_CRC & 0x04) {
+                _CRC = _CRC & 0xFB; // Bit 3 is set, so clear it
             } else {
-                CRC = CRC | 0x04; // Bit 3 is clear, so set it
+                _CRC = _CRC | 0x04; // Bit 3 is clear, so set it
             }
             // Check bit 4
-            if (CRC & 0x08) {
-                CRC = CRC & 0xF7; // Bit 4 is set, so clear it
+            if (_CRC & 0x08) {
+                _CRC = _CRC & 0xF7; // Bit 4 is set, so clear it
             } else {
-                CRC = CRC | 0x08; // Bit 4 is clear, so set it
+                _CRC = _CRC | 0x08; // Bit 4 is clear, so set it
             }
         } else {
             // DATA ^ LSB CRC = 0
-            CRC = CRC>>1;
+            _CRC = _CRC>>1;
             // clear MSB
-            CRC = CRC & 0x7F;
+            _CRC = _CRC & 0x7F;
             // No need to check bits, with DATA ^ LSB CRC = 0, they will remain unchanged
         }
         byte = byte>>1;
     }
-return CRC;
+return _CRC;
 }
  
 int DS1820::convertTemperature(bool wait, devices device) {
@@ -361,16 +361,16 @@ float DS1820::temperature(char scale) {
         }
         answer = reading +0.0; // convert to floating point
         if ((FAMILY_CODE == FAMILY_CODE_DS18B20 ) || (FAMILY_CODE == FAMILY_CODE_DS1822 )) {
-            answer = answer / 16.0;
+            answer = answer / 16.0f;
         }
         else {
             remaining_count = RAM[6];
             count_per_degree = RAM[7];
-            answer = floor(answer/2.0) - 0.25 + (count_per_degree - remaining_count) / count_per_degree;
+            answer = floor(answer/2.0f) - 0.25f + (count_per_degree - remaining_count) / count_per_degree;
         }
         if (scale=='F' or scale=='f')
             // Convert to deg F
-            answer = answer * 9.0 / 5.0 + 32.0;
+            answer = answer * 9.0f / 5.0f + 32.0f;
     }
     return answer;
 }

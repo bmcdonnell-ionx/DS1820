@@ -112,7 +112,7 @@ private:
     bool _power_mosfet;
     bool _power_polarity;
     
-    static char CRC_byte (char CRC, char byte );
+    static char CRC_byte(char _CRC, char byte );
     static bool onewire_reset(DigitalInOut *pin);
     void match_ROM();
     void skip_ROM();
