@@ -117,9 +117,10 @@ bool DS1820::search_ROM_routine(DigitalInOut *pin, char command, char *ROM_addre
         } else {
             ROM_bit_index=1;
             descrepancy_marker=0;
+            char command_shift = command;
             for (int n=0; n<8; n++) {           // Search ROM command or Search Alarm command
-                onewire_bit_out(pin, command & 0x01);
-                command = command >> 1; // now the next bit is in the least sig bit position.
+                onewire_bit_out(pin, command_shift & 0x01);
+                command_shift = command_shift >> 1; // now the next bit is in the least sig bit position.
             } 
             byte_counter = 0;
             bit_mask = 0x01;
