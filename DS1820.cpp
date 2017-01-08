@@ -1,5 +1,56 @@
 #include "DS1820.h"
 
+#ifdef TARGET_STM
+//STM targets use opendrain mode since their GPIO code is too bad to be used like the others
+    #define ONEWIRE_INPUT(pin)  pin->write(1)
+    #define ONEWIRE_OUTPUT(pin) 
+    #define ONEWIRE_INIT(pin)   pin->output(); pin->mode(OpenDrain)
+    
+    // TEMP, remove once STM fixed their stuff
+// Enable GPIO clock and return GPIO base address 
+static uint32_t Set_GPIO_Clock(uint32_t port_idx) { 
+    uint32_t gpio_add = 0; 
+    switch (port_idx) { 
+        case PortA: 
+           gpio_add = GPIOA_BASE; 
+           __GPIOA_CLK_ENABLE(); 
+           break; 
+        case PortB: 
+            gpio_add = GPIOB_BASE; 
+            __GPIOB_CLK_ENABLE(); 
+            break; 
+#if defined(GPIOC_BASE) 
+        case PortC: 
+            gpio_add = GPIOC_BASE; 
+            __GPIOC_CLK_ENABLE(); 
+            break; 
+#endif 
+#if defined(GPIOD_BASE) 
+       case PortD: 
+           gpio_add = GPIOD_BASE; 
+            __GPIOD_CLK_ENABLE(); 
+            break; 
+#endif 
+#if defined(GPIOF_BASE) 
+        case PortF: 
+            gpio_add = GPIOF_BASE; 
+            __GPIOF_CLK_ENABLE(); 
+            break; 
+#endif 
+      default: 
+           error("Pinmap error: wrong port number."); 
+           break; 
+   } 
+   return gpio_add; 
+} 
+
+
+#else
+    #define ONEWIRE_INPUT(pin)  pin->input()
+    #define ONEWIRE_OUTPUT(pin) pin->output()
+    #define ONEWIRE_INIT(pin)
+#endif
+
 LinkedList<node> DS1820::probes;
  
  
@@ -11,6 +62,20 @@ DS1820::DS1820 (PinName data_pin, PinName power_pin, bool power_polarity) : _dat
     
     for(byte_counter=0;byte_counter<9;byte_counter++)
         RAM[byte_counter] = 0x00;
+    
+    ONEWIRE_INIT((&_datapin));
+    // Temp code since the above doesn't actually do anything in mbed revisions up to 133
+    #ifdef TARGET_STM
+    
+    uint32_t port_index = STM_PORT(data_pin); 
+    uint32_t pin_index  = STM_PIN(data_pin); 
+    
+    // Enable GPIO clock 
+    uint32_t gpio_add = Set_GPIO_Clock(port_index); 
+    GPIO_TypeDef *gpio = (GPIO_TypeDef *)gpio_add; 
+
+    gpio->OTYPER |= (uint32_t)(1 << pin_index); 
+    #endif
     
     if (!unassignedProbe(&_datapin, _ROM))
         error("No unassigned DS1820 found!\n");
@@ -35,10 +100,10 @@ DS1820::~DS1820 (void) {
 bool DS1820::onewire_reset(DigitalInOut *pin) {
 // This will return false if no devices are present on the data bus
     bool presence=false;
-    pin->output();
+    ONEWIRE_OUTPUT(pin);
     pin->write(0);          // bring low for 500 us
     wait_us(500);
-    pin->input();       // let the data line float high
+    ONEWIRE_INPUT(pin);       // let the data line float high
     wait_us(90);            // wait 90us
     if (pin->read()==0) // see if any devices are pulling the data line low
         presence=true;
@@ -47,7 +112,7 @@ bool DS1820::onewire_reset(DigitalInOut *pin) {
 }
  
 void DS1820::onewire_bit_out (DigitalInOut *pin, bool bit_data) {
-    pin->output();
+    ONEWIRE_OUTPUT(pin);
     pin->write(0);
     wait_us(3);                 // DXP modified from 5
     if (bit_data) {
@@ -70,10 +135,10 @@ void DS1820::onewire_byte_out(char data) { // output data character (least sig b
  
 bool DS1820::onewire_bit_in(DigitalInOut *pin) {
     bool answer;
-    pin->output();
+    ONEWIRE_OUTPUT(pin);
     pin->write(0);
     wait_us(3);                 // DXP modofied from 5
-    pin->input();
+    ONEWIRE_INPUT(pin);
     wait_us(10);                // DXP modified from 5
     answer = pin->read();
     wait_us(45);                // DXP modified from 50
@@ -93,6 +158,19 @@ char DS1820::onewire_byte_in() { // read byte, least sig byte first
 
 bool DS1820::unassignedProbe(PinName pin) {
     DigitalInOut _pin(pin);
+    ONEWIRE_INIT((&_pin));
+    // Temp code since the above doesn't actually do anything in mbed revisions up to 133
+    #ifdef TARGET_STM
+    
+    uint32_t port_index = STM_PORT(pin); 
+    uint32_t pin_index  = STM_PIN(pin); 
+    
+    // Enable GPIO clock 
+    uint32_t gpio_add = Set_GPIO_Clock(port_index); 
+    GPIO_TypeDef *gpio = (GPIO_TypeDef *)gpio_add; 
+
+    gpio->OTYPER |= (uint32_t)(1 << pin_index); 
+    #endif
     char ROM_address[8];
     return search_ROM_routine(&_pin, 0xF0, ROM_address);
 }
